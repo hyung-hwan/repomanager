@@ -9,6 +9,7 @@ class Api
     private $method;
     private $uri;
     private $route;
+    private $authHeader;
     private $data;
     private $authenticationController;
     private $apiKeyAuthentication = false;
@@ -16,7 +17,7 @@ class Api
 
     public function __construct()
     {
-        $this->authenticationController = new \Controllers\Api\Authentication\Authentication();
+        $this->authenticationController = new \Controllers\Api\Authentication();
 
         /**
          *  Exit if method is not allowed
@@ -28,21 +29,28 @@ class Api
         }
 
         /**
-         *  Get method
+         *  Retrieve method
          */
         $this->method = $_SERVER['REQUEST_METHOD'];
 
         /**
-         *  Retrieve data
+         *  Retrieve JSON data if any
          */
         $this->data = json_decode(file_get_contents("php://input"));
 
         /**
+         *  Retrieve authentication header if any
+         */
+        if (!empty($_SERVER['HTTP_AUTHORIZATION'])) {
+            $this->authHeader = $_SERVER['HTTP_AUTHORIZATION'];
+        }
+
+        /**
          *  Quit on error if no data was sent
          */
-        if (empty($this->data)) {
-            self::returnError(400, 'Missing data.');
-        }
+        // if (empty($this->data)) {
+        //     self::returnError(400, 'Missing data.');
+        // }
 
         /**
          *  Retrieve URI
@@ -51,7 +59,7 @@ class Api
         $this->uri = explode('/', $this->uri);
 
         /**
-         *  Get route from URI
+         *  Retrieve route from URI
          */
         $this->route = $this->uri[3];
 
@@ -76,7 +84,7 @@ class Api
         /**
          *  Check if authentication is valid from data sent
          */
-        if (!$this->authenticationController->valid($this->data)) {
+        if (!$this->authenticationController->valid($this->authHeader, $this->data)) {
             self::returnError(401, 'Bad credentials.');
         }
 
@@ -124,9 +132,24 @@ class Api
             /**
              *  Call API controller
              */
-            $myapiController = new $apiControllerPath($this->method, $this->uri, $this->data);
+            $myapiController = new $apiControllerPath($this->method, $this->uri);
+
+            /**
+             *  Set authentication method (true or false)
+             */
             $myapiController->setApiKeyAuthentication($this->apiKeyAuthentication);
             $myapiController->setHostAuthentication($this->hostAuthentication);
+
+            /**
+             *  Set JSON data if any
+             */
+            if (!empty($this->data)) {
+                $myapiController->setJsonData($this->data);
+            }
+
+            /**
+             *  Execute API controller and return results
+             */
             $resultArray = $myapiController->execute();
             self::returnSuccess($resultArray);
         } catch (Exception $e) {

@@ -1,6 +1,6 @@
 <?php
 
-namespace Controllers\Api\Authentication;
+namespace Controllers\Api;
 
 use Exception;
 
@@ -29,15 +29,20 @@ class Authentication
 
     /**
      *  Check if authentication is valid
-     *  It can be an API key authentication or a host authId and token authentication
+     *  It can be an API key authentication or a host authId+token authentication
      */
-    public function valid(object $data)
+    public function valid(string $authHeader = null, object $data = null)
     {
         /**
-         *  If API key is specified
+         *  If API key is specified through the Authorization header
+         *  e.g. "Authorization: Bearer <API_KEY>"
          */
-        if (!empty($data->apikey)) {
-            $apiKey = $data->apikey;
+        if (!empty($authHeader) && strpos($authHeader, 'Bearer ') === 0) {
+            /**
+             *  Extract the token
+             *  Remove "Bearer " from the header
+             */
+            $apiKey = substr($authHeader, 7);
         }
 
         /**
@@ -72,6 +77,15 @@ class Authentication
              *  Set apiKeyAuthentication to true if API key is valid
              */
             $this->apiKeyAuthentication = true;
+
+            /**
+             *  Check if API key is an Admin API key
+             */
+            if ($this->loginController->apiKeyIsAdmin($apiKey)) {
+                if (!defined('IS_API_ADMIN')) {
+                    define('IS_API_ADMIN', true);
+                }
+            }
         }
 
         /**
